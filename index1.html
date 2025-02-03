@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Honey Butter</title>
+<audio id="backgroundMusic" muted autoplay loop>
+    <source src="your-music-file.mp3" type="audio/mp3">
+</audio>
+<script>
+    // เล่นเพลงอัตโนมัติเมื่อผู้ใช้โต้ตอบกับหน้าเว็บ
+    document.addEventListener("click", function() {
+        let audio = document.getElementById("backgroundMusic");
+        audio.muted = false;
+        audio.play();
+    });
+</script>
+
+    <style>
+        body {
+            text-align: center;
+            background: url('background.jpg') no-repeat center center fixed;
+            background-size: cover;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            touch-action: none;
+        }
+        canvas {
+            background-color: rgba(0, 0, 0, 0.5);
+            display: block;
+            margin: 30px auto;
+            border-radius: 30px;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;  /* ปรับระยะห่างระหว่างปุ่ม */
+            margin-top: 20px;  /* เพิ่มระยะห่างจาก canvas */
+        }
+        .btn {
+            width: 50px;  /* ขนาดปุ่มเล็กลงเพื่อให้เข้ากับขนาดใหม่ */
+            height: 50px;
+            font-size: 18px;  /* ปรับขนาดตัวหนังสือในปุ่ม */
+            border: 3px solid #e6295a;
+            background-color: #F9ACC0;
+            color: white;
+            border-radius: 25px;  /* ปรับให้มุมกลม */
+            cursor: pointer;
+        }
+        .btn:active {
+            background-color: #F9ACC0;
+        }
+    </style>
+</head>
+<body>
+
+    <h1 style="color: #FF99CC; padding: 10px;
+    border: 5px solid #FF99CC; /* ขอบตัวหนังสือ */
+    display: inline-block;
+    border-radius: 10px;
+    background-color: white;">Nanny &#9829 Arthit</h1>
+
+
+    <canvas id="gameCanvas" width="300" height="500"></canvas>
+    
+    <div class="controls">
+        <button class="btn" id="left">&#11013;</button>
+        <button class="btn" id="rotate">&#128257;</button>
+        <button class="btn" id="right">&#10145;</button>
+        <button class="btn" id="down">&#11015;</button>
+    </div>
+
+    <script>  //โค้ดแถวตัวต่อ
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        const ROWS = 10; //ควมลึกแนวตั้ง /* ปรับจำนวนแถวให้เหมาะสมกับขนาดใหม่ */
+        const COLS = 6; //จำนวนที่กล่องลงมาได้
+        const BLOCK_SIZE = 50;  /* ขนาดบล็อกยังคงเท่าเดิม */
+        const board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+
+        // โหลดรูปภาพของบล็อก
+        const images = {
+            "I": loadImage("block_I.png"),
+            "T": loadImage("block_T.png"),
+            "Z": loadImage("block_Z.png"),
+            "S": loadImage("block_S.png"),
+            "O": loadImage("block_O.png"),
+            "L": loadImage("block_L.png"),
+            "J": loadImage("block_J.png")
+        };
+
+        function loadImage(src) {
+            let img = new Image();
+            img.src = src;
+            return img;
+        }
+
+        const SHAPES = [
+            { shape: [[1, 1, 1, 1]], type: "I" },
+            { shape: [[1, 1, 1], [0, 1, 0]], type: "T" },
+            { shape: [[1, 1, 0], [0, 1, 1]], type: "Z" },
+            { shape: [[0, 1, 1], [1, 1, 0]], type: "S" },
+            { shape: [[1, 1], [1, 1]], type: "O" },
+            { shape: [[1, 1, 1], [1, 0, 0]], type: "L" },
+            { shape: [[1, 1, 1], [0, 0, 1]], type: "J" }
+        ];
+
+        let piece = randomPiece();
+        let pos = { x: 3, y: 0 };
+        let dropInterval = 500;
+        let lastDropTime = Date.now();
+
+        function randomPiece() {
+            let index = Math.floor(Math.random() * SHAPES.length);
+            return { shape: SHAPES[index].shape, type: SHAPES[index].type };
+        }
+
+        function drawBlock(x, y, type) {
+            let img = images[type];
+            ctx.drawImage(img, x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+        }
+
+        function drawBoard() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    if (board[r][c]) drawBlock(c, r, board[r][c]);
+                }
+            }
+            piece.shape.forEach((row, y) =>
+                row.forEach((cell, x) => {
+                    if (cell) drawBlock(pos.x + x, pos.y + y, piece.type);
+                })
+            );
+        }
+
+        function collision(newX, newY, newShape) {
+            return newShape.some((row, y) =>
+                row.some((cell, x) => {
+                    if (!cell) return false;
+                    let newXPos = newX + x;
+                    let newYPos = newY + y;
+                    return newXPos < 0 || newXPos >= COLS || newYPos >= ROWS || board[newYPos]?.[newXPos];
+                })
+            );
+        }
+
+        function movePiece(dx, dy) {
+            if (!collision(pos.x + dx, pos.y + dy, piece.shape)) {
+                pos.x += dx;
+                pos.y += dy;
+            }
+        }
+
+        function rotatePiece() {
+            const newShape = piece.shape[0].map((_, i) => piece.shape.map(row => row[i])).reverse();
+            if (!collision(pos.x, pos.y, newShape)) piece.shape = newShape;
+        }
+
+        function mergePiece() {
+            piece.shape.forEach((row, y) =>
+                row.forEach((cell, x) => {
+                    if (cell) board[pos.y + y][pos.x + x] = piece.type;
+                })
+            );
+        }
+
+        function clearRows() {
+            for (let r = ROWS - 1; r >= 0; r--) {
+                if (board[r].every(cell => cell)) {
+                    board.splice(r, 1);
+                    board.unshift(Array(COLS).fill(0));
+                }
+            }
+        }
+
+        function dropPiece() {
+            if (!collision(pos.x, pos.y + 1, piece.shape)) {
+                pos.y++;
+            } else {
+                mergePiece();
+                clearRows();
+                piece = randomPiece();
+                pos = { x: 2, y: 0 };
+                if (collision(pos.x, pos.y, piece.shape)) {
+                    alert("Game Over");
+                    board.forEach(row => row.fill(0));
+                }
+            }
+        }
+
+        function gameLoop() {
+            const now = Date.now();
+            if (now - lastDropTime > dropInterval) {
+                dropPiece();
+                lastDropTime = now;
+            }
+            drawBoard();
+            requestAnimationFrame(gameLoop);
+        }
+
+        document.getElementById("left").addEventListener("click", () => movePiece(-1, 0));
+        document.getElementById("right").addEventListener("click", () => movePiece(1, 0));
+        document.getElementById("down").addEventListener("click", dropPiece);
+        document.getElementById("rotate").addEventListener("click", rotatePiece);
+
+        gameLoop();
+    </script>
+
+</body>
+</html>
